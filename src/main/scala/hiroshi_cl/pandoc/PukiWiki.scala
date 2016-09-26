@@ -33,15 +33,33 @@ object PukiWiki extends RegexParsers {
       }
   }
 
-  def pre: Parser[CodeBlock] = ((" " | "\t") ~> notLineBreaks) ^^ (list => CodeBlock(Attr("", List.empty, List.empty), list.mkString("\n")))
+  def pre: Parser[CodeBlock] = ((" " | "\t") ~> notLineBreaks) ^^
+    (list => CodeBlock(Attr("", List.empty, List.empty), list.mkString("\n")))
 
-  def uList: Parser[BulletList] = ???
+  def uList(level: Int): Parser[BulletList] = uElement(level).* ^^ BulletList
 
-  def oList: Parser[OrderedList] = ???
+  def uElement(level: Int): Parser[ListItem] = ???
+
+  def oList(level: Int): Parser[OrderedList] = oElement(level).* ^^
+    (list => OrderedList(ListAttributes(level, DefaultStyle, DefaultDelim), list))
+
+  def oElement(level: Int): Parser[ListItem] = ???
 
   def bQuote: Parser[BlockQuote] = ???
 
-  def dList: Parser[DefinitionList] = ???
+  def dList(level: Int): Parser[DefinitionList] = dElement(level).* ^^ DefinitionList
+
+  def dElement(level: Int): Parser[DefinitionItem] = ("\\*{" + level + "}").r ~ notLineBreaks ~ "|" ~ dDescription(level) ^^ {
+    case _ ~ dt ~ _ ~ dd =>
+      parseAll(inlines, dt) match {
+        case Success(dtInlines, _) =>
+          DefinitionItem(dtInlines, List(dd))
+        case NoSuccess(_, _) =>
+          throw null
+      }
+  }
+
+  def dDescription(level: Int): Parser[Definition] = ???
 
   def table: Parser[Table] = ???
 
@@ -56,8 +74,8 @@ object PukiWiki extends RegexParsers {
   def notContainable: Parser[Block] = emptyLine | hRule | multiLinePlugin | heading
 
   def notInline: Parser[Block] = notContainable | align | pre |
-    uList | oList | bQuote |
-    dList | table | yTable | blockPlugin |
+    uList(1) | oList(1) | bQuote |
+    dList(1) | table | yTable | blockPlugin |
     paragraph
 
   def block: Parser[Block] = comment | notInline | plain
