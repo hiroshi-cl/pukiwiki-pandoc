@@ -36,20 +36,26 @@ object PukiWiki extends RegexParsers {
   def pre: Parser[CodeBlock] = ((" " | "\t") ~> notLineBreaks) ^^
     (list => CodeBlock(Attr("", List.empty, List.empty), list.mkString("\n")))
 
-  def uList(level: Int): Parser[BulletList] = uElement(level).* ^^ BulletList
+  def uList(level: Int): Parser[BulletList] = uElement(level).+ ^^ BulletList
 
-  def uElement(level: Int): Parser[ListItem] = ???
+  def uElement(level: Int): Parser[ListItem] =
+    exactLevel('-', level) ~> (not(notContainable) ~> not(lowerListElement(level)) ~> block).+ ^^ ListItem
 
-  def oList(level: Int): Parser[OrderedList] = oElement(level).* ^^
+  def oList(level: Int): Parser[OrderedList] = oElement(level).+ ^^
     (list => OrderedList(ListAttributes(level, DefaultStyle, DefaultDelim), list))
 
-  def oElement(level: Int): Parser[ListItem] = ???
+  def oElement(level: Int): Parser[ListItem] =
+    exactLevel('+', level) ~> (not(notContainable) ~> not(lowerListElement(level)) ~> block).+ ^^ ListItem
 
-  def bQuote: Parser[BlockQuote] = ???
+  def bQuote(level: Int): Parser[BlockQuote] = bQuoteElement(level) ^^ (list => BlockQuote(list.flatten))
 
-  def dList(level: Int): Parser[DefinitionList] = dElement(level).* ^^ DefinitionList
+  // TODO: level があっていないときの実装をどうするか。PukiWiki は完全にバグっている。
+  def bQuoteElement(level: Int): Parser[List[Block]] =
+    exactLevel('>', level) ~> (not(notContainable) ~> not(lowerBQuote(level)) ~> block).+ <~ exactLevel('<', level)
 
-  def dElement(level: Int): Parser[DefinitionItem] = ("\\*{" + level + "}").r ~ notLineBreaks ~ "|" ~ dDescription(level) ^^ {
+  def dList(level: Int): Parser[DefinitionList] = dElement(level).+ ^^ DefinitionList
+
+  def dElement(level: Int): Parser[DefinitionItem] = exactLevel(':', level) ~ notLineBreaks ~ "|" ~ dDescription(level) ^^ {
     case _ ~ dt ~ _ ~ dd =>
       parseAll(inlines, dt) match {
         case Success(dtInlines, _) =>
@@ -59,7 +65,26 @@ object PukiWiki extends RegexParsers {
       }
   }
 
-  def dDescription(level: Int): Parser[Definition] = ???
+  def dDescription(level: Int): Parser[Definition] =
+    (not(notContainable) ~> not(lowerListElement(level)) ~> block).+ ^^ Definition
+
+  def lowerListElement(maxLevel: Int): Parser[_] = maxLevel match {
+    case 1 => "-[^\\-]".r | "+[^+]".r | ":[^:]".r
+    case 2 => "-{1,2}[^\\-]".r | "+{1,2}[^+]".r | ":{1,2}[^:]".r
+    case 3 => "-{1,2}[^\\-]".r | "+{1,2}[^+]".r | ":{1,2}[^:]".r | "---" | "+++" | ":::"
+  }
+
+  def lowerBQuote(maxLevel: Int): Parser[_] = maxLevel match {
+    case 1 => ">[^>]".r
+    case 2 => ">{1,2}[^>]".r
+    case 3 => ">{1,2}[^>]".r | ">>>"
+  }
+
+  def exactLevel(symbol: Char, level: Int): Parser[_] = level match {
+    case 1 => s"\\$symbol".r ~ not(s"[^\\$symbol]".r)
+    case 2 => s"\\$symbol\\$symbol".r ~ not(s"[^\\$symbol]".r)
+    case 3 => s"\\$symbol\\$symbol\\$symbol"
+  }
 
   def table: Parser[Table] = ???
 
@@ -74,8 +99,8 @@ object PukiWiki extends RegexParsers {
   def notContainable: Parser[Block] = emptyLine | hRule | multiLinePlugin | heading
 
   def notInline: Parser[Block] = notContainable | align | pre |
-    uList(1) | oList(1) | bQuote |
-    dList(1) | table | yTable | blockPlugin |
+    uList(1) | uList(2) | uList(3) | oList(1) | oList(2) | oList(3) | bQuote(1) | bQuote(2) | bQuote(3) |
+    dList(1) | dList(2) | dList(3) | table | yTable | blockPlugin |
     paragraph
 
   def block: Parser[Block] = comment | notInline | plain
