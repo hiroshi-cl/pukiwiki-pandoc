@@ -49,7 +49,6 @@ object PukiWiki extends RegexParsers {
 
   def bQuote(level: Int): Parser[BlockQuote] = bQuoteElement(level) ^^ (list => BlockQuote(list.flatten))
 
-  // TODO: level があっていないときの実装をどうするか。PukiWiki は完全にバグっている。
   def bQuoteElement(level: Int): Parser[List[Block]] =
     exactLevel('>', level) ~> (not(notContainable) ~> not(lowerBQuote(level)) ~> block).+ <~ exactLevel('<', level)
 
@@ -86,6 +85,9 @@ object PukiWiki extends RegexParsers {
     case 3 => s"\\$symbol\\$symbol\\$symbol"
   }
 
+  def wrongBQuoteClose: Parser[Nothing] = (exactLevel('<', 1) | exactLevel('<', 2) | exactLevel('<', 3)) ~>
+    failure("BQuote の閉じ方を間違えています。PukiWiki のバグった実装はサポートしていません。")
+
   def table: Parser[Table] = ???
 
   def yTable: Parser[Table] = ???
@@ -99,7 +101,7 @@ object PukiWiki extends RegexParsers {
   def notContainable: Parser[Block] = emptyLine | hRule | multiLinePlugin | heading
 
   def notInline: Parser[Block] = notContainable | align | pre |
-    uList(1) | uList(2) | uList(3) | oList(1) | oList(2) | oList(3) | bQuote(1) | bQuote(2) | bQuote(3) |
+    uList(1) | uList(2) | uList(3) | oList(1) | oList(2) | oList(3) | bQuote(1) | bQuote(2) | bQuote(3) | wrongBQuoteClose |
     dList(1) | dList(2) | dList(3) | table | yTable | blockPlugin |
     paragraph
 
