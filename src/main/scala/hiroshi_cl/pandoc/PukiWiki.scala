@@ -47,7 +47,7 @@ object PukiWiki extends RegexParsers {
   def oElement(level: Int): Parser[ListItem] =
     exactLevel('+', level) ~> (not(notContainable) ~> not(lowerListElement(level)) ~> block).+ ^^ ListItem
 
-  def bQuote(level: Int): Parser[BlockQuote] = bQuoteElement(level) ^^ (list => BlockQuote(list.flatten))
+  def bQuote(level: Int): Parser[BlockQuote] = bQuoteElement(level) ^^ BlockQuote
 
   def bQuoteElement(level: Int): Parser[List[Block]] =
     exactLevel('>', level) ~> (not(notContainable) ~> not(lowerBQuote(level)) ~> block).+ <~ exactLevel('<', level)
@@ -74,9 +74,9 @@ object PukiWiki extends RegexParsers {
   }
 
   def lowerBQuote(maxLevel: Int): Parser[_] = maxLevel match {
-    case 1 => ">[^>]".r
-    case 2 => ">{1,2}[^>]".r
-    case 3 => ">{1,2}[^>]".r | ">>>"
+    case 1 => "<" | ">[^>]".r
+    case 2 => "<" | ">{1,2}[^>]".r
+    case 3 => "<" | ">{1,2}[^>]".r | ">>>"
   }
 
   def exactLevel(symbol: Char, level: Int): Parser[_] = level match {
@@ -85,8 +85,9 @@ object PukiWiki extends RegexParsers {
     case 3 => s"\\$symbol\\$symbol\\$symbol"
   }
 
-  def wrongBQuoteClose: Parser[Nothing] = (exactLevel('<', 1) | exactLevel('<', 2) | exactLevel('<', 3)) ~>
-    failure("BQuote の閉じ方を間違えています。PukiWiki のバグった実装はサポートしていません。")
+  // PukiWiki の実装では対応しない閉じ bQuote は level 0 扱い
+  def bQuote0: Parser[BlockQuote] = (exactLevel('<', 1) | exactLevel('<', 2) | exactLevel('<', 3)) ~>
+    (not(notContainable) ~> not("<") ~> block).+ ^^ BlockQuote
 
   def table: Parser[Table] = ???
 
@@ -101,7 +102,7 @@ object PukiWiki extends RegexParsers {
   def notContainable: Parser[Block] = emptyLine | hRule | multiLinePlugin | heading
 
   def notInline: Parser[Block] = notContainable | align | pre |
-    uList(1) | uList(2) | uList(3) | oList(1) | oList(2) | oList(3) | bQuote(1) | bQuote(2) | bQuote(3) | wrongBQuoteClose |
+    uList(1) | uList(2) | uList(3) | oList(1) | oList(2) | oList(3) | bQuote(1) | bQuote(2) | bQuote(3) | bQuote0 |
     dList(1) | dList(2) | dList(3) | table | yTable | blockPlugin |
     paragraph
 
