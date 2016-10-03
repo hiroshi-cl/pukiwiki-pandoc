@@ -6,7 +6,10 @@ import spandoc._
 object PukiWiki extends RegexParsers {
   def comment: Parser[Null.type] = "//" ~ notLineBreaks ~ lineBreaks ^^^ Null
 
-  def inlines: Parser[List[Inline]] = ???
+  def inlines: Parser[List[Inline]] =
+    (notLineBreaks <~ lineBreaks) ~ (comment.* ~> not(notInline) ~> notLineBreaks <~ lineBreaks).* ^^ {
+      case head ~ tail => Str(head) :: tail.map(Str)
+    }
 
   def align: Parser[Div] = ("LEFT" | "RIGHT" | "CENTER") ~ ":" ~ inlines ^? {
     case a ~ _ ~ c =>
@@ -21,7 +24,7 @@ object PukiWiki extends RegexParsers {
 
   def hRule: Parser[HorizontalRule.type] = "----" ~ notLineBreaks ~ lineBreaks ^^^ HorizontalRule
 
-  def multiLinePlugin: Parser[Div] = ???
+  def multiLinePlugin: Parser[Div] = failure("not implemented yet")
 
   def heading: Parser[Header] = "\\*{0,3}".r ~ notLineBreaks ~ ("\\[#" ~> "[A-Za-z][\\w-]+" <~ "\\]").? ~ notLineBreaks <~ lineBreaks ^^ {
     case level ~ title1 ~ anchorOpt ~ title2 =>
@@ -89,11 +92,11 @@ object PukiWiki extends RegexParsers {
   def bQuote0: Parser[BlockQuote] = (exactLevel('<', 1) | exactLevel('<', 2) | exactLevel('<', 3)) ~>
     (not(notContainable) ~> not("<") ~> block).+ ^^ BlockQuote
 
-  def table: Parser[Table] = ???
+  def table: Parser[Table] = failure("not implemented yet")
 
-  def yTable: Parser[Table] = ???
+  def yTable: Parser[Table] = failure("not implemented yet")
 
-  def blockPlugin: Parser[Block] = ???
+  def blockPlugin: Parser[Block] = failure("not implemented yet")
 
   def paragraph: Parser[Para] = "~" ~> inlines ^^ Para
 
