@@ -16,7 +16,7 @@ object PukiWiki extends RegexParsers {
       Div(Attr("", List("text-align-" + a.toLowerCase), List("style" -> ("text-align: " + a.toLowerCase))), List(Plain(c)))
   }
 
-  def notLineBreaks = "[^\r\n]*?".r
+  def notLineBreaks = "[^\r\n]+".r
 
   def lineBreaks = "\r\n" | "\r" | "\n"
 
@@ -26,7 +26,7 @@ object PukiWiki extends RegexParsers {
 
   def multiLinePlugin: Parser[Div] = failure("not implemented yet")
 
-  def heading: Parser[Header] = "\\*{0,3}".r ~ notLineBreaks ~ ("\\[#" ~> "[A-Za-z][\\w-]+" <~ "\\]").? ~ notLineBreaks <~ lineBreaks ^^ {
+  def heading: Parser[Header] = "\\*{1,3}".r ~ notLineBreaks ~ ("\\[#" ~> "[A-Za-z][\\w-]+" <~ "\\]").? ~ notLineBreaks <~ lineBreaks ^^ {
     case level ~ title1 ~ anchorOpt ~ title2 =>
       parseAll(inlines, title1 + title2) match {
         case Success(title, _) =>
