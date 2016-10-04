@@ -3,12 +3,21 @@ package hiroshi_cl.pandoc
 import scala.util.parsing.combinator._
 import spandoc._
 
-object PukiWiki extends RegexParsers {
+trait MockInlineParsers extends RegexParsers {
+  def inlineMarkUps: Parser[List[Inline]] = "(?s).*" ^^ (whole => List(Str(whole)))
+}
+
+trait PukiWikiBlockParsers extends RegexParsers {
+  _: InlineParsers =>
+
   def comment: Parser[Null.type] = "//" ~ notLineBreaks ~ lineBreaks ^^^ Null
 
   def inlines: Parser[List[Inline]] =
     (notLineBreaks <~ lineBreaks) ~ (comment.* ~> not(notInline) ~> notLineBreaks <~ lineBreaks).* ^^ {
-      case head ~ tail => Str(head) :: tail.map(Str)
+      case head ~ tail => (head :: tail).map(parseAll(inlineMarkUps, _) match {
+        case Success(list, _) => list
+        case NoSuccess(e, _) => err(e.mkString)
+      }).flatten
     }
 
   def align: Parser[Div] = ("LEFT" | "RIGHT" | "CENTER") ~ ":" ~ inlines ^? {
@@ -110,6 +119,12 @@ object PukiWiki extends RegexParsers {
     paragraph
 
   def block: Parser[Block] = comment | notInline | plain
+}
 
+trait PukiWikiParsers extends RegexParsers with BlockParsers with InlineParsers {
   def body: Parser[Pandoc] = block.* ^^ (blocks => Pandoc(Meta(Map.empty), blocks))
 }
+
+object MockPukiWikiParsers extends PukiWikiParsers with PukiWikiBlockParsers with MockInlineParsers
+
+

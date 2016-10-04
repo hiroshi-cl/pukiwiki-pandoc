@@ -2,7 +2,7 @@ package hiroshi_cl.pandoc
 
 object Main {
 
-  import PukiWiki._
+  import MockPukiWikiParsers._
 
   def main(args: Array[String]): Unit = {
     val str = scala.io.Source.stdin.mkString
