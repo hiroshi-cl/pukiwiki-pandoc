@@ -4,7 +4,7 @@ import scala.util.parsing.combinator._
 import spandoc._
 
 trait MockInlineParsers extends RegexParsers {
-  def inlineMarkUps: Parser[List[Inline]] = "(?s).*" ^^ (whole => List(Str(whole)))
+  def inlineMarkUps: Parser[List[Inline]] = "^.*$".r ^^ (whole => List(Str(whole)))
 }
 
 trait PukiWikiBlockParsers extends RegexParsers {
@@ -14,10 +14,7 @@ trait PukiWikiBlockParsers extends RegexParsers {
 
   def inlines: Parser[List[Inline]] =
     (notLineBreaks <~ lineBreaks) ~ (comment.* ~> not(notInline) ~> notLineBreaks <~ lineBreaks).* ^^ {
-      case head ~ tail => (head :: tail).map(parseAll(inlineMarkUps, _) match {
-        case Success(list, _) => list
-        case NoSuccess(e, _) => err(e.mkString)
-      }).flatten
+      case head ~ tail => (head :: tail).flatMap(parseAll(inlineMarkUps, _).get)
     }
 
   def align: Parser[Div] = ("LEFT" | "RIGHT" | "CENTER") ~ ":" ~ inlines ^? {
@@ -27,7 +24,7 @@ trait PukiWikiBlockParsers extends RegexParsers {
 
   def notLineBreaks = "[^\r\n]+".r
 
-  def lineBreaks = "\r\n" | "\r" | "\n"
+  def lineBreaks = "\r\n" | "\r" | "\n" | "$".r
 
   def emptyLine: Parser[Null.type] = lineBreaks ^^^ Null
 
